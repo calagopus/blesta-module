@@ -1,0 +1,16 @@
+{
+    "name": "calagopus/blesta",
+    "description": "Calagopus Module for Blesta",
+    "license": "proprietary",
+    "type": "blesta-module",
+    "require": {
+        "php": ">=7.2.0",
+        "blesta/composer-installer": "~1.0"
+    },
+    "authors": [
+        {
+            "name": "Calagopus",
+            "homepage": "https://calagopus.com"
+        }
+    ]
+}

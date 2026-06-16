@@ -1,0 +1,39 @@
+{
+    "version": "1.0.0",
+    "name": "Calagopus.name",
+    "description": "Calagopus.description",
+    "authors": [
+        {
+            "name": "Calagopus",
+            "url": "https://calagopus.com"
+        }
+    ],
+    "service": {
+        "name_key": "server_name"
+    },
+    "module": {
+        "row": "Calagopus.module_row",
+        "rows": "Calagopus.module_row_plural",
+        "row_key": "server_name",
+        "group": "Calagopus.module_group"
+    },
+    "email_tags": {
+        "module": [
+            "server_name",
+            "host_name"
+        ],
+        "package": [
+            "nest_uuid",
+            "egg_uuid",
+            "memory",
+            "disk"
+        ],
+        "service": [
+            "server_name",
+            "server_uuid",
+            "server_ip",
+            "server_port"
+        ]
+    },
+    "icon": "bi-joystick"
+}

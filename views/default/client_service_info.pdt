@@ -1,0 +1,42 @@
+<?php /** @var View $this **/ ?>
+
+<div class="table-responsive">
+<?php if (isset($server) && $server) { ?>
+    <table class="table table-curved table-striped">
+        <tbody>
+            <tr>
+                <td><strong><?php $this->_('Calagopus.service_info.server_name'); ?></strong></td>
+                <td><?php echo $this->Html->safe($server->name ?? ($service_fields->server_name ?? '')); ?></td>
+            </tr>
+            <tr>
+                <td><strong><?php $this->_('Calagopus.service_info.status'); ?></strong></td>
+                <td><?php echo $this->Html->safe(
+                    ($server->is_suspended ?? false) ? 'Suspended' : ($server->status ?? 'Active')
+                ); ?></td>
+            </tr>
+            <tr>
+                <td><strong><?php $this->_('Calagopus.service_info.address'); ?></strong></td>
+                <td><?php
+                $ip = $server->allocation->ip_alias ?? ($server->allocation->ip ?? ($service_fields->server_ip ?? ''));
+                $port = $server->allocation->port ?? ($service_fields->server_port ?? '');
+                echo $this->Html->safe($ip . ($port ? ':' . $port : ''));
+                ?></td>
+            </tr>
+            <tr>
+                <td><strong><?php $this->_('Calagopus.service_info.memory'); ?></strong></td>
+                <td><?php echo $this->Html->safe(($server->limits->memory ?? 0) . ' MiB'); ?></td>
+            </tr>
+            <tr>
+                <td><strong><?php $this->_('Calagopus.service_info.disk'); ?></strong></td>
+                <td><?php echo $this->Html->safe(($server->limits->disk ?? 0) . ' MiB'); ?></td>
+            </tr>
+        </tbody>
+    </table>
+    <a href="<?php echo $this->Html->safe($panel_url . '/server/' . ($server->uuid ?? '')); ?>"
+       target="_blank" class="btn btn-primary">
+        <?php $this->_('Calagopus.service_info.open_panel'); ?>
+    </a>
+<?php } else { ?>
+    <p><?php $this->_('Calagopus.service_info.unavailable'); ?></p>
+<?php } ?>
+</div>
