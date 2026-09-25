@@ -211,6 +211,7 @@ class Calagopus extends Module
 
         $this->loadLib('calagopus_service');
         $service_helper = new CalagopusService();
+        $admin = !$this->isClientRequest();
 
         if (($vars['use_module'] ?? 'true') == 'true') {
             $module = $this->getModule();
@@ -235,7 +236,7 @@ class Calagopus extends Module
 
             $vars['external_id'] = 'bl-' . ($vars['client_id'] ?? '0') . '-' . uniqid();
 
-            $payload = $service_helper->addServerParameters($vars, $package, $panel_user, $egg, $egg_variables);
+            $payload = $service_helper->addServerParameters($vars, $package, $panel_user, $egg, $egg_variables, $admin);
 
             $node_uuid = trim($package->meta->node_uuid ?? '');
             if ($node_uuid !== '') {
@@ -298,7 +299,7 @@ class Calagopus extends Module
             }
         }
 
-        return $this->getServiceMeta($vars, new stdClass(), $package, $egg_variables, $service_helper);
+        return $this->getServiceMeta($vars, new stdClass(), $package, $egg_variables, $service_helper, $admin);
     }
 
     /**
@@ -328,6 +329,7 @@ class Calagopus extends Module
 
         $this->loadLib('calagopus_service');
         $service_helper = new CalagopusService();
+        $admin = !$this->isClientRequest();
 
         $package = $this->getConfigurableOptions($vars, $package);
         $egg_variables = $this->getEggVariables($package->meta->nest_uuid ?? '', $package->meta->egg_uuid ?? '');
@@ -351,7 +353,13 @@ class Calagopus extends Module
                 return;
             }
 
-            $variables = $service_helper->getEnvironmentVariables($vars, $package, $egg_variables, $service_fields);
+            $variables = $service_helper->getEnvironmentVariables(
+                $vars,
+                $package,
+                $egg_variables,
+                $service_fields,
+                $admin
+            );
             if (!empty($variables)) {
                 $this->apiRequest(
                     'PUT',
@@ -364,7 +372,7 @@ class Calagopus extends Module
             }
         }
 
-        return $this->getServiceMeta($vars, $service_fields, $package, $egg_variables, $service_helper);
+        return $this->getServiceMeta($vars, $service_fields, $package, $egg_variables, $service_helper, $admin);
     }
 
     /**
@@ -580,10 +588,17 @@ class Calagopus extends Module
      * @param stdClass $package The package
      * @param array $egg_variables A list of egg variable objects
      * @param CalagopusService $service_helper The service helper
+     * @param bool $admin Whether the fields were submitted by an admin
      * @return array A numerically indexed array of meta fields
      */
-    private function getServiceMeta(array $vars, $service_fields, $package, array $egg_variables, $service_helper)
-    {
+    private function getServiceMeta(
+        array $vars,
+        $service_fields,
+        $package,
+        array $egg_variables,
+        $service_helper,
+        $admin
+    ) {
         $get = function ($key, $default = null) use ($vars, $service_fields) {
             if (isset($vars[$key]) && $vars[$key] !== '') {
                 return $vars[$key];
@@ -606,7 +621,13 @@ class Calagopus extends Module
             ],
         ];
 
-        $environment = $service_helper->getEnvironmentVariables($vars, $package, $egg_variables, $service_fields);
+        $environment = $service_helper->getEnvironmentVariables(
+            $vars,
+            $package,
+            $egg_variables,
+            $service_fields,
+            $admin
+        );
         foreach ($environment as $variable) {
             $key = strtolower($variable['env_variable']);
             foreach ($return as $index => $item) {
@@ -618,6 +639,16 @@ class Calagopus extends Module
         }
 
         return array_values($return);
+    }
+
+    /**
+     * Determines whether the current request was made by a client, rather than by staff or the system.
+     *
+     * @return bool True if a client made the request, false otherwise
+     */
+    private function isClientRequest()
+    {
+        return !empty($this->getFromContainer('requestor')->client_id);
     }
 
     /**
@@ -739,8 +770,23 @@ class Calagopus extends Module
         $response = $api->apiRequest($method, $endpoint, $params);
         $errors = $response->errors();
 
-        $this->log($method . ' ' . $endpoint, json_encode($params), 'input', true);
-        $this->log($method . ' ' . $endpoint, $response->raw(), 'output', empty($errors));
+        $masked_params = $params;
+        if (isset($masked_params['variables']) && is_array($masked_params['variables'])) {
+            foreach ($masked_params['variables'] as &$variable) {
+                if (($variable['value'] ?? '') !== '') {
+                    $variable['value'] = '***';
+                }
+            }
+            unset($variable);
+        }
+
+        $this->log($method . ' ' . $endpoint, json_encode($masked_params), 'input', true);
+        $this->log(
+            $method . ' ' . $endpoint,
+            empty($errors) ? json_encode(['status' => $response->status()]) : $response->raw(),
+            'output',
+            empty($errors)
+        );
 
         if (!empty($errors)) {
             $this->Input->setErrors(['Calagopus' => $errors['api'] ?? $errors]);
@@ -869,7 +915,15 @@ class Calagopus extends Module
         // Locations
         $locations_response = $api->apiRequest('GET', '/api/admin/locations', ['page' => 1, 'per_page' => 100]);
         $this->log('GET /api/admin/locations', json_encode([]), 'input', true);
-        $this->log('GET /api/admin/locations', $locations_response->raw(), 'output', $locations_response->status() < 400);
+        $this->log(
+            'GET /api/admin/locations',
+            json_encode([
+                'status' => $locations_response->status(),
+                'errors' => $locations_response->errors()
+            ]),
+            'output',
+            $locations_response->status() < 400
+        );
         if ($locations_response->status() < 400) {
             $package_lists['locations'] = [];
             foreach (($locations_response->response()->locations->data ?? []) as $location) {
@@ -880,7 +934,15 @@ class Calagopus extends Module
         // Nodes
         $nodes_response = $api->apiRequest('GET', '/api/admin/nodes', ['page' => 1, 'per_page' => 100]);
         $this->log('GET /api/admin/nodes', json_encode([]), 'input', true);
-        $this->log('GET /api/admin/nodes', $nodes_response->raw(), 'output', $nodes_response->status() < 400);
+        $this->log(
+            'GET /api/admin/nodes',
+            json_encode([
+                'status' => $nodes_response->status(),
+                'errors' => $nodes_response->errors()
+            ]),
+            'output',
+            $nodes_response->status() < 400
+        );
         if ($nodes_response->status() < 400) {
             $package_lists['nodes'] = ['' => Language::_('Calagopus.please_select.node', true)];
             foreach (($nodes_response->response()->nodes->data ?? []) as $node) {
@@ -1269,7 +1331,15 @@ class Calagopus extends Module
                             );
                             $response = $api->apiRequest('GET', '/api/admin/locations', ['page' => 1, 'per_page' => 1]);
                             $this->log('GET /api/admin/locations', json_encode([]), 'input', true);
-                            $this->log('GET /api/admin/locations', $response->raw(), 'output', $response->status() < 400);
+                            $this->log(
+                                'GET /api/admin/locations',
+                                json_encode([
+                                    'status' => $response->status(),
+                                    'errors' => $response->errors()
+                                ]),
+                                'output',
+                                $response->status() < 400
+                            );
 
                             return $response->status() >= 200 && $response->status() < 300;
                         } catch (\Throwable $e) {

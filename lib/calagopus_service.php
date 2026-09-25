@@ -77,10 +77,17 @@ class CalagopusService
      * @param stdClass $panelUser An object representing the Calagopus user
      * @param stdClass $egg An object representing the Calagopus egg
      * @param array $eggVariables A list of egg variable objects
+     * @param bool $admin Whether the post fields were submitted by an admin (optional)
      * @return array The list of parameters
      */
-    public function addServerParameters(array $vars, $package, $panelUser, $egg, array $eggVariables = [])
-    {
+    public function addServerParameters(
+        array $vars,
+        $package,
+        $panelUser,
+        $egg,
+        array $eggVariables = [],
+        $admin = false
+    ) {
         $meta = $package->meta;
 
         $prefix = $meta->server_name_prefix ?? '';
@@ -102,7 +109,7 @@ class CalagopusService
             'hugepages_passthrough_enabled' => ($meta->hugepages_passthrough ?? '0') == '1',
             'kvm_passthrough_enabled' => ($meta->kvm_passthrough ?? '0') == '1',
             'feature_limits' => $this->getFeatureLimits($meta),
-            'variables' => $this->getEnvironmentVariables($vars, $package, $eggVariables),
+            'variables' => $this->getEnvironmentVariables($vars, $package, $eggVariables, null, $admin),
         ];
 
         $backupConfigUuid = trim($meta->backup_configuration_uuid ?? '');
@@ -286,15 +293,22 @@ class CalagopusService
      *
      * Values are resolved in the following priority order:
      * config option, service field, package field, egg default.
+     * Post fields are only used for variables displayed to clients, unless submitted by an admin.
      *
      * @param array $vars An array of post fields
      * @param stdClass $package The package to pull defaults from
      * @param array $eggVariables A list of egg variable objects
      * @param stdClass $serviceFields An object representing the current service fields (optional)
+     * @param bool $admin Whether the post fields were submitted by an admin (optional)
      * @return array A list of [env_variable, value] pairs
      */
-    public function getEnvironmentVariables(array $vars, $package, array $eggVariables, $serviceFields = null)
-    {
+    public function getEnvironmentVariables(
+        array $vars,
+        $package,
+        array $eggVariables,
+        $serviceFields = null,
+        $admin = false
+    ) {
         $variables = [];
         foreach ($eggVariables as $envVariable) {
             $variableName = $envVariable->env_variable ?? '';
@@ -303,9 +317,11 @@ class CalagopusService
             }
 
             $blestaVariableName = strtolower($variableName);
+            $clientEditable = isset($package->meta->{$blestaVariableName . '_display'})
+                && $package->meta->{$blestaVariableName . '_display'} == '1';
             if (isset($vars['configoptions'][$blestaVariableName])) {
                 $value = $vars['configoptions'][$blestaVariableName];
-            } elseif (isset($vars[$blestaVariableName])) {
+            } elseif (isset($vars[$blestaVariableName]) && ($admin || $clientEditable)) {
                 $value = $vars[$blestaVariableName];
             } elseif (isset($serviceFields->{$blestaVariableName})) {
                 $value = $serviceFields->{$blestaVariableName};
