@@ -473,9 +473,6 @@ class Calagopus extends Module
         }
 
         $matched = $this->searchUser($api, $client->email, 'email');
-        if (!$matched) {
-            $matched = $this->searchUser($api, $params['username'], 'username');
-        }
 
         if (!$matched) {
             $this->Input->setErrors(

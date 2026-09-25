@@ -18,7 +18,7 @@ $lang['Calagopus.!error.module_row.missing'] = 'An internal error occurred. The 
 $lang['Calagopus.!error.server.missing'] = 'The server could not be found on the panel.';
 $lang['Calagopus.!error.allocation.available'] = 'There are no available allocations on the selected node.';
 $lang['Calagopus.!error.deploy.location'] = 'No node or location is configured for this package.';
-$lang['Calagopus.!error.user.conflict'] = 'A user with this email or username already exists on the panel but could not be found via search.';
+$lang['Calagopus.!error.user.conflict'] = 'A panel user with this username already exists and was not linked automatically. Verify that it belongs to this client before linking it manually.';
 $lang['Calagopus.!error.import.module'] = 'The Pterodactyl module is not installed, so there is nothing to import.';
 $lang['Calagopus.!error.import.row_map'] = 'Select a Calagopus server to import at least one Pterodactyl server into.';
 
